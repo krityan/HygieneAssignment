@@ -1,0 +1,266 @@
+<html>
+
+<head>
+	<title>Food Hygiene Ratings</title>
+	<style>
+	#titling {
+		text-transform: capitalize;
+		font-size: 36px;
+		font-family: "Lucida Console", Monospace;
+		font-weight: bold;
+		text-align: center;
+	}
+
+	#buttons {
+		margin: auto;
+		width: 80%;
+		text-align: center;
+	}
+
+	#buttons > button {
+		border: none;
+    color: white;
+		background-color: black;
+		width: 40px;
+		border-radius: 2px;
+		margin: 5px;
+		padding: 10px 0px;
+		font-family: "Lucida Console", Monospace;
+	}
+
+	#ratingtable {
+		font-family: "Lucida Console", Monospace;
+		border-collapse: collapse;
+		width: 80%;
+		border: 2px solid black;
+		margin: auto;
+	}
+
+	#ratingtable td, #ratingtable th {
+		border: 1px solid black;
+		text-align: center;
+		height: 25px;
+		padding: 5px 5px;
+	}
+
+	.ratingbutton {
+		padding: 0;
+	}
+
+	.ratingbutton > button {
+	  font-family: "Lucida Console", Monospace;
+		display: block;
+		width: 100%;
+		height: 25px;
+		border: none;
+    color: white;
+		background-color: black;
+		border-radius: 2px;
+		margin: auto;
+	}
+
+	#break {
+		height: 30px;
+	}
+
+	#search {
+		font-family: "Lucida Console", Monospace;
+		text-align: center;
+		font-weight: bold;
+		font-size: 22px;
+		width: 60%;
+		margin: auto;
+	}
+
+	#searchform input[type=text]{
+		width: 100%;
+		padding: 10px 10px;
+		margin: 8px 0px;
+		box-sizing: border-box;
+		border: 1px solid black;
+	}
+
+	#searchform input[type=text]:focus {
+		border: 3px solid black;
+	}
+
+	#searchform input[type=button]{
+		background-color: black;
+		color: white;
+		border: none;
+		padding: 10px 10px;
+		margin: 0;
+		width: 100%;
+	}
+
+	</style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<script type="text/javascript">
+		var hscripthost = "https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php"; // hygiene script location
+		var rscripthost = "https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/rating.php"; // rating script location
+
+		// empties the table and fills it with the information returned by the hygiene script for the specified page
+		function getPage(pagenum)
+		{
+			$.get(hscripthost,
+				{op: "retrieve", page: pagenum},
+				function(data) {
+					addToTable(data);
+				},
+				'json'
+			);
+		}
+
+		// uses the search operation in the hygiene script and adds the new data to the table
+		function search()
+		{
+			var searchvalue = $("#searchvalue").val();
+			$.get(hscripthost,
+			{op: "searchname", name: searchvalue},
+			function(data) {
+				addToTable(data);
+			},
+			'json'
+		);
+		}
+
+		// adds the provided data to the table, for use wiith data returned from the hygiene script
+		function addToTable(data)
+		{
+			$("#ratingtable").find("tr:gt(0)").remove(); // remove all but the first row of the table
+			var tempHTML = '';
+			$.each(data, function(i, item) {
+				tempHTML += '<tr><td>' + data[i].business + '</td><td>' + data[i].address + '</td><td>' + data[i].rating + '</td><td>' + data[i].date + '</td>';
+				tempHTML += '<td class="ratingbutton"><button type="button" value="' + data[i].postcode + '">Get Rating</button></td>';
+				tempHTML += '</tr>'
+			});
+			$("#ratingtable").append(tempHTML);
+		}
+
+		// gets the rating for a business based on it's name and postcode, takes the row and the value of the button that was clicked
+		function getRating(row, postcode)
+		{
+			var businessName = row.find('td:first').text();
+			$.get(rscripthost,
+				{name: businessName},
+				function(data) {
+					index = 0;
+					$.each(data, function(i, item) {
+						index++;
+					});
+					if (index < 1) // 0 results found
+					{
+						alert("No rating found for this business");
+					}
+					else if (index < 2) // 1 result found
+					{
+						if (data[0].rating.length > 0) // checks if the rating is not an empty string
+						{
+							alert("Customer Rating for " + businessName + ": " + data[0].rating);
+						}
+						else
+						{
+							alert("No rating found for this business");
+						}
+					}
+					else if (index > 1) // more than 1 result found, using postcode to find which one is correct
+					{
+						var rating = 0.0;
+						$.each(data, function(i, item){
+							var address = data[i].address;
+							address = address.toLowerCase();
+							postcode = postcode.toLowerCase(); // making the postode and address lowercase to prevent case causing a failed match
+							if (address.includes(postcode))
+							{
+								rating = item.rating;
+							}
+						});
+						if (rating.length > 0) // checks if the rating is not an empty string
+						{
+							alert("Customer Rating for " + businessName + ": " + rating);
+						}
+						else
+						{
+							alert("No rating found for this business");
+						}
+					}
+				},
+				'json'
+			);
+		}
+
+		$(document).ready(function(){
+			// initially loads the first page from the hygiene script
+			getPage(1);
+
+			// sets up the buttons for navigating pages
+			$.get(hscripthost,
+				{op: "pages"},
+				function(data) {
+					var pages = data.pages;
+					for (i = 1; i <= pages; i++)
+					{
+						$("#buttons").append('<button type="button">' + i + '</button>');
+					}
+				},
+				'json'
+			);
+
+			// listener applied to paginator buttons
+			$("#buttons").on("click", "button", function() {
+				getPage($(this).text());
+			});
+
+			// listener applied to rating buttons in the table
+			$("#ratingtable").on("click", "button", function() {
+				getRating($(this).closest('tr'), $(this).val());
+			});
+
+			// form search submisssion, uses search funtion of
+			$("#submitsearch").click(function() {
+				search();
+		});
+
+		// pressing enter in the form normally submits the form and reloads the page, this causes enter to perform the ajax search rather than submit the form
+		$("#searchform").keypress(function(event) {
+			if (event.keyCode == 13)
+			{
+				search();
+				return false;
+			}
+    	return event.keyCode != 13;
+		});
+
+	});
+	</script>
+</head>
+
+<body>
+	<h1 id="titling">Food Hygiene Ratings</h1>
+
+	<!-- holder for buttons for pagination -->
+	<div id="buttons"> </div>
+
+	<!-- table to display businesses in -->
+	<table id="ratingtable">
+		<tr>
+			<th>Business</th>
+			<th>Address</th>
+			<th>Rating</th>
+			<th>Date</th>
+			<th>Rating</th>
+		</tr>
+	</table>
+	<br />
+
+	<!-- form for searching for businesses -->
+	<div id="search">
+		<form id="searchform">
+			Business Name: <br />
+			<input type="text" id="searchvalue"></input>
+			<input type="button" value="Search" id="submitsearch"></input>
+		</form>
+	</div>
+</body>
+
+</html>
